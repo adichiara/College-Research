@@ -1,0 +1,112 @@
+name: Update site
+
+on:
+  schedule:
+    - cron: "17 7 * * *"        # nightly, ~3am Eastern
+  workflow_dispatch:
+    inputs:
+      refresh:
+        description: "Recapture every page (yearly refresh)"
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+    paths: ["site/**", "scripts/**", ".github/workflows/**"]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: update-site
+  cancel-in-progress: false
+
+env:
+  VAULT_KEY: ${{ secrets.VAULT_KEY }}
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check secrets
+        env:
+          A: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          B: ${{ secrets.SHEET_ID }}
+          C: ${{ secrets.SITE_PASSWORD }}
+          D: ${{ secrets.STATICRYPT_SALT }}
+        run: |
+          for v in A B C D VAULT_KEY; do
+            [ -n "${!v}" ] || { echo "A required secret is missing (see README, step 3)"; exit 1; }
+          done
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r scripts/requirements.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm install -g single-file-cli staticrypt@3
+
+      - name: Unlock saved pages
+        run: python scripts/vault.py unlock
+
+      - name: Read the sheet
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+        run: python scripts/sheet.py
+
+      - name: Capture pages
+        env:
+          SINGLEFILE_ARGS: ${{ vars.SINGLEFILE_ARGS || '--browser-executable-path=/usr/bin/google-chrome' }}
+        run: python scripts/capture.py ${{ inputs.refresh && '--refresh' || '' }}
+
+      - name: Lock and commit (encrypted only)
+        run: |
+          python scripts/vault.py lock
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A vault
+          git diff --cached --quiet || git commit -m "Update saved pages $(date -u +%F)"
+          git push
+
+      - name: Build site
+        run: python scripts/build.py
+
+      - name: Encrypt site
+        env:
+          STATICRYPT_PASSWORD: ${{ secrets.SITE_PASSWORD }}
+          STATICRYPT_SALT: ${{ secrets.STATICRYPT_SALT }}
+        working-directory: build
+        run: |
+          targets="index.html"
+          [ -d p ] && targets="$targets p"
+          staticrypt $targets -r -d ../dist \
+            --salt "$STATICRYPT_SALT" -c false \
+            --short --remember 180 \
+            --template-button "Open" \
+            --template-color-primary "#1f5f7a" --template-color-secondary "#eef2ef" \
+            --template-title "College research" \
+            --template-instructions "Enter the family password. Check 'Remember me' so you only need to do this once on this device."
+          cp robots.txt .nojekyll ../dist/
+          # Safety check: no readable page may be published.
+          if grep -rL "staticrypt" ../dist --include='*.html' | grep -q .; then
+            echo "Unencrypted HTML found in dist/"; exit 1
+          fi
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: update
+    runs-on: ubuntu-latest
+    environment: github-pages
+    steps:
+      - uses: actions/deploy-pages@v4
