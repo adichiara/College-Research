@@ -1,0 +1,11 @@
+# Readable working files: never committed (this repo is public).
+data/
+snapshots/
+dist/
+.vault-manifest.json
+service-account*.json
+.env
+__pycache__/
+*.pyc
+
+build/
