@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>College research</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bitter:wght@500;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #eef2ef;
+    --sheet: #fbfcfb;
+    --ink: #1d2b2a;
+    --muted: #5f6f6c;
+    --rule: #cbd5d1;
+    --accent: #1f5f7a;
+    --fill: #d6e6ec;
+    --fill-hover: #bfd8e2;
+    --warn: #8a4b12;
+    --head: "Bitter", Georgia, serif;
+    --body: "Atkinson Hyperlegible", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.5 var(--body); }
+  a { color: var(--accent); }
+  button, input { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  header.top { padding: 28px 24px 12px; max-width: 1200px; margin: 0 auto; }
+  h1 { font: 700 2rem/1.1 var(--head); margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 18px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  #search { flex: 1 1 260px; max-width: 420px; padding: 9px 12px; border: 1px solid var(--rule);
+            border-radius: 6px; background: var(--sheet); }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag { border: 1px solid var(--rule); background: var(--sheet); border-radius: 999px;
+         padding: 3px 11px; cursor: pointer; font-size: .9rem; }
+  .tag[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  main { max-width: 1200px; margin: 0 auto; padding: 8px 24px 60px; }
+  section.school { margin: 26px 0 0; }
+  h2 { font: 700 1.45rem/1.2 var(--head); margin: 0 0 8px; }
+  h3 { font: 500 1.15rem/1.2 var(--head); margin: 36px 0 8px; }
+  .scroll { overflow-x: auto; background: var(--sheet); border: 1px solid var(--rule); border-radius: 8px; }
+
+  table.grid { border-collapse: collapse; width: 100%; min-width: 520px; table-layout: fixed; }
+  .grid th, .grid td { border-bottom: 1px solid var(--rule); padding: 0; text-align: left; vertical-align: middle; }
+  .grid thead th { font-weight: 700; font-size: .85rem; color: var(--muted); padding: 10px 8px; white-space: nowrap; }
+  .grid tbody tr:last-child > * { border-bottom: 0; }
+  .grid th.major { padding: 10px 14px; font-weight: 700; width: 22%; }
+  .grid td { padding: 6px; }
+  .cell { display: block; width: 100%; min-height: 40px; border-radius: 5px; border: 0;
+          background: var(--fill); cursor: pointer; text-align: left; padding: 8px 10px; font-size: .9rem; }
+  .cell:hover { background: var(--fill-hover); }
+  .cell .n { color: var(--muted); }
+  .cell.unsaved { background: var(--sheet); border: 1.5px solid var(--rule); color: var(--muted); }
+  .empty { display: block; min-height: 40px; border: 1.5px dashed var(--rule); border-radius: 5px; }
+  .missing { display: none; }
+
+  ul.plain { list-style: none; padding: 0; margin: 0; background: var(--sheet);
+             border: 1px solid var(--rule); border-radius: 8px; }
+  ul.plain li { padding: 10px 14px; border-bottom: 1px solid var(--rule); }
+  ul.plain li:last-child { border-bottom: 0; }
+  .linkish { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; text-align: left; }
+  .meta { color: var(--muted); font-size: .9rem; }
+  .err { color: var(--warn); font-size: .9rem; }
+  .blank { padding: 40px 0; color: var(--muted); max-width: 60ch; }
+
+  /* Reader */
+  #reader { position: fixed; inset: 0 0 0 auto; width: min(900px, 100%); background: var(--sheet);
+            border-left: 1px solid var(--rule); box-shadow: -8px 0 30px rgba(29,43,42,.12);
+            display: flex; flex-direction: column; transform: translateX(100%);
+            transition: transform .2s ease; visibility: hidden; z-index: 10; }
+  #reader.open { transform: none; visibility: visible; }
+  .rhead { padding: 14px 18px 10px; border-bottom: 1px solid var(--rule); }
+  .rrow { display: flex; gap: 8px; align-items: flex-start; justify-content: space-between; }
+  .rtitle { font: 700 1.15rem/1.25 var(--head); margin: 0; }
+  .crumbs { color: var(--muted); font-size: .9rem; margin: 2px 0 8px; }
+  .ractions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: .92rem; }
+  .btn { border: 1px solid var(--rule); background: var(--paper); border-radius: 6px; padding: 5px 11px; cursor: pointer; text-decoration: none; color: var(--ink); }
+  .btn[disabled] { opacity: .4; cursor: default; }
+  .close { font-size: 1.4rem; line-height: 1; padding: 4px 10px; }
+  .note { margin: 10px 0 0; padding: 8px 12px; background: var(--paper); border-left: 3px solid var(--accent);
+          border-radius: 0 6px 6px 0; max-width: 70ch; white-space: pre-wrap; }
+  .note .by { color: var(--muted); font-size: .88rem; }
+  .cell .has-note { color: var(--accent); font-weight: 700; margin-left: 4px; }
+  .ptabs { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .ptabs .btn[aria-selected="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+  #frame { flex: 1; border: 0; width: 100%; background: #fff; }
+  .noframe { padding: 24px 18px; }
+
+  @media (max-width: 700px) {
+    header.top, main { padding-left: 14px; padding-right: 14px; }
+    h1 { font-size: 1.6rem; }
+    .scroll { overflow: visible; }
+    table.grid, .grid tbody, .grid tr, .grid th, .grid td { display: block; min-width: 0; width: auto; }
+    .grid thead { display: none; }
+    .grid tr { padding: 10px 12px; border-bottom: 1px solid var(--rule); }
+    .grid tbody tr:last-child { border-bottom: 0; }
+    .grid th.major, .grid td { border: 0; padding: 0; }
+    .grid th.major { margin-bottom: 6px; width: auto; }
+    .grid td { display: inline-block; margin: 0 6px 6px 0; }
+    .grid td.is-empty { display: none; }
+    .cell { min-height: 0; padding: 6px 10px; }
+    .cell::before { content: attr(data-label); font-weight: 700; margin-right: 4px; }
+    .cell .n { display: inline; }
+    .missing { display: block; color: var(--muted); font-size: .85rem; font-weight: 400; }
+    #reader { border-left: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) { #reader { transition: none; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>College research</h1>
+  <p class="sub">Schools' own pages, organized by school, major, and kind of information.</p>
+  <div class="controls">
+    <input id="search" type="search" placeholder="Search schools, majors, titles, notes" aria-label="Search">
+    <div class="tags" id="tags"></div>
+  </div>
+</header>
+<main id="main"></main>
+
+<aside id="reader" aria-hidden="true" aria-label="Page viewer">
+  <div class="rhead">
+    <div class="rrow">
+      <div>
+        <p class="rtitle" id="rtitle"></p>
+        <p class="crumbs" id="rcrumbs"></p>
+      </div>
+      <button class="btn close" id="rclose" aria-label="Close viewer">×</button>
+    </div>
+    <div class="ractions" id="ractions"></div>
+    <p class="note" id="rnote" hidden></p>
+    <div class="ptabs" id="ptabs" role="tablist"></div>
+  </div>
+  <div id="rbody" style="flex:1;display:flex;flex-direction:column"></div>
+</aside>
+
+<script>
+const DATA = /*__DATA__*/null;
+const items = DATA.items;
+const infoTypes = DATA.infoTypes;
+const state = { q: "", tags: new Set() };
+let current = null;   // { list, index, versionIndex }
+
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const byName = (a, b) => a.localeCompare(b, undefined, { sensitivity: "base" });
+const sorted = i => i.school && i.major && i.info;
+const label = i => i.title || i.url.replace(/^https?:\/\//, "");
+
+function visible(i) {
+  if (state.tags.size && ![...state.tags].every(t => i.tags.includes(t))) return false;
+  if (!state.q) return true;
+  const hay = [i.school, i.major, i.info, i.title, i.url, i.notes, i.addedBy, ...i.tags].join(" ").toLowerCase();
+  return state.q.split(/\s+/).every(w => hay.includes(w));
+}
+
+function renderTags() {
+  const all = [...new Set(items.flatMap(i => i.tags))].sort(byName);
+  document.getElementById("tags").innerHTML = all.map(t =>
+    `<button class="tag" aria-pressed="${state.tags.has(t)}" data-tag="${esc(t)}">${esc(t)}</button>`).join("");
+}
+
+function render() {
+  const main = document.getElementById("main");
+  if (!items.length) {
+    main.innerHTML = `<p class="blank">No pages yet. Add a link through the family form, and it will show up here after the next update.</p>`;
+    return;
+  }
+  const shown = items.filter(visible);
+  const good = shown.filter(sorted);
+  const schools = [...new Set(good.map(i => i.school))].sort(byName);
+  let html = "";
+
+  for (const school of schools) {
+    const inSchool = good.filter(i => i.school === school);
+    const majors = [...new Set(inSchool.map(i => i.major))].sort(byName);
+    html += `<section class="school"><h2>${esc(school)}</h2><div class="scroll"><table class="grid">
+      <thead><tr><th class="major">Major</th>${infoTypes.map(t => `<th>${esc(t)}</th>`).join("")}</tr></thead><tbody>`;
+    for (const major of majors) {
+      const row = inSchool.filter(i => i.major === major);
+      const missing = infoTypes.filter(t => !row.some(i => i.info === t));
+      html += `<tr><th class="major" scope="row">${esc(major)}
+        ${missing.length ? `<span class="missing">Nothing yet for: ${missing.map(esc).join(", ")}</span>` : ""}</th>`;
+      for (const t of infoTypes) {
+        const pages = row.filter(i => i.info === t);
+        html += pages.length
+          ? `<td><button class="cell${pages.every(p => p.status !== "ok") ? " unsaved" : ""}" data-label="${esc(t)}" data-open="${esc(JSON.stringify([school, major, t]))}">
+               ${pages.length === 1 ? esc(truncate(label(pages[0]), 38)) : `<span class="n">${pages.length} pages</span>`}${pages.some(p => p.notes) ? `<span class="has-note" title="Has notes" aria-label="has notes">✎</span>` : ""}
+             </button></td>`
+          : `<td class="is-empty"><span class="empty" aria-label="Nothing yet"></span></td>`;
+      }
+      html += `</tr>`;
+    }
+    html += `</tbody></table></div></section>`;
+  }
+
+  const unsorted = shown.filter(i => !sorted(i));
+  if (unsorted.length) {
+    html += `<h3>Unsorted</h3><ul class="plain">${unsorted.map(i => `<li>
+      <button class="linkish" data-single="${items.indexOf(i)}">${esc(label(i))}</button>
+      <div class="meta">Missing ${["school","major","info"].filter(k => !i[k]).map(k => k === "info" ? "info type" : k).join(", ")} in the sheet</div></li>`).join("")}</ul>`;
+  }
+
+  const problems = shown.filter(i => i.status !== "ok");
+  if (problems.length) {
+    html += `<h3>Not saved yet</h3><ul class="plain">${problems.map(i => `<li>
+      <a href="${esc(i.url)}" target="_blank" rel="noopener">${esc(i.url)}</a>
+      <div class="${i.status === "failed" ? "err" : "meta"}">${i.status === "failed"
+        ? "Couldn't save this page: " + esc(i.error || "unknown error")
+        : "Waiting for the next update"}</div></li>`).join("")}</ul>`;
+  }
+
+  if (!html) html = `<p class="blank">Nothing matches. Clear the search or tag filters to see everything.</p>`;
+  main.innerHTML = html;
+}
+
+function truncate(s, n) { return s.length > n ? s.slice(0, n - 1) + "…" : s; }
+
+// Reader. `list` is the set of pages shown as tabs; prev/next walks the same
+// info type across all schools and majors, so you can compare one kind of page.
+function openCell(school, major, info) {
+  const list = items.filter(i => visible(i) && i.school === school && i.major === major && i.info === info);
+  current = { list, index: 0, versionIndex: 0 };
+  showReader();
+}
+function openSingle(idx) {
+  current = { list: [items[idx]], index: 0, versionIndex: 0 };
+  showReader();
+}
+function sameTypeCells(info) {
+  const cells = [];
+  for (const i of items.filter(i => visible(i) && sorted(i) && i.info === info)
+    .sort((a, b) => byName(a.school, b.school) || byName(a.major, b.major))) {
+    const key = i.school + "\u0000" + i.major;
+    if (!cells.some(c => c.key === key)) cells.push({ key, school: i.school, major: i.major });
+  }
+  return cells;
+}
+
+function showReader() {
+  const item = current.list[current.index];
+  const v = item.versions[current.versionIndex];
+  document.getElementById("rtitle").textContent = label(item);
+  document.getElementById("rcrumbs").textContent =
+    [item.school, item.major, item.info].filter(Boolean).join(" / ") + (v ? `, saved ${v.date}` : "");
+
+  let actions = `<a class="btn" href="${esc(item.url)}" target="_blank" rel="noopener">Open school's site</a>`;
+  if (item.versions.length > 1) {
+    const other = current.versionIndex === 0 ? 1 : 0;
+    actions += `<button class="btn" data-version="${other}">${other ? "Show earlier version (" + item.versions[1].date + ")" : "Show latest version"}</button>`;
+  }
+  if (sorted(item)) {
+    const cells = sameTypeCells(item.info);
+    const pos = cells.findIndex(c => c.school === item.school && c.major === item.major);
+    actions += `<button class="btn" data-step="-1" ${pos <= 0 ? "disabled" : ""}>Previous ${esc(item.info)}</button>
+                <button class="btn" data-step="1" ${pos < 0 || pos >= cells.length - 1 ? "disabled" : ""}>Next ${esc(item.info)}</button>`;
+  }
+  if (item.tags.length) actions += `<span class="meta">${item.tags.map(esc).join(", ")}</span>`;
+  document.getElementById("ractions").innerHTML = actions;
+
+  const note = document.getElementById("rnote");
+  note.hidden = !item.notes && !item.addedBy;
+  note.innerHTML = (item.notes ? esc(item.notes) : "") +
+    (item.addedBy ? `${item.notes ? " " : ""}<span class="by">${item.notes ? "(" : ""}Added by ${esc(item.addedBy)}${item.notes ? ")" : ""}</span>` : "");
+
+  document.getElementById("ptabs").innerHTML = current.list.length > 1
+    ? current.list.map((p, n) => `<button class="btn" role="tab" aria-selected="${n === current.index}" data-tab="${n}">${esc(truncate(label(p), 30))}</button>`).join("")
+    : "";
+
+  document.getElementById("rbody").innerHTML = v
+    ? `<iframe id="frame" src="${esc(v.file)}" title="${esc(label(item))}"></iframe>`
+    : `<div class="noframe"><p>This page hasn't been saved yet.</p>
+       <p><a href="${esc(item.url)}" target="_blank" rel="noopener">Open it on the school's site</a></p></div>`;
+
+  const r = document.getElementById("reader");
+  r.classList.add("open");
+  r.setAttribute("aria-hidden", "false");
+  document.getElementById("rclose").focus();
+}
+
+function closeReader() {
+  const r = document.getElementById("reader");
+  r.classList.remove("open");
+  r.setAttribute("aria-hidden", "true");
+  document.getElementById("rbody").innerHTML = "";
+}
+
+document.addEventListener("click", e => {
+  const t = e.target.closest("button");
+  if (!t) return;
+  if (t.dataset.tag !== undefined) {
+    state.tags.has(t.dataset.tag) ? state.tags.delete(t.dataset.tag) : state.tags.add(t.dataset.tag);
+    renderTags(); render();
+  } else if (t.dataset.open) {
+    openCell(...JSON.parse(t.dataset.open));
+  } else if (t.dataset.single !== undefined) {
+    openSingle(+t.dataset.single);
+  } else if (t.dataset.tab !== undefined) {
+    current.index = +t.dataset.tab; current.versionIndex = 0; showReader();
+  } else if (t.dataset.version !== undefined) {
+    current.versionIndex = +t.dataset.version; showReader();
+  } else if (t.dataset.step) {
+    const item = current.list[current.index];
+    const cells = sameTypeCells(item.info);
+    const pos = cells.findIndex(c => c.school === item.school && c.major === item.major);
+    const next = cells[pos + +t.dataset.step];
+    if (next) openCell(next.school, next.major, item.info);
+  } else if (t.id === "rclose") {
+    closeReader();
+  }
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeReader(); });
+document.getElementById("search").addEventListener("input", e => {
+  state.q = e.target.value.trim().toLowerCase(); render();
+});
+
+renderTags();
+render();
+</script>
+</body>
+</html>
