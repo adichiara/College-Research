@@ -45,20 +45,33 @@ def page_title(path):
     return html.unescape(" ".join(m.group(1).split())) if m else ""
 
 
+POLYFILL = ROOT / "scripts" / "node-polyfill.mjs"
+
+
+def tail(text, n=300):
+    lines = [l for l in (text or "").splitlines() if l.strip()]
+    return " | ".join(lines[-4:])[-n:]
+
+
 def capture(url, out):
     out.parent.mkdir(parents=True, exist_ok=True)
     cmd = ["single-file", url, str(out), *EXTRA_ARGS]
+    env = dict(os.environ)
+    env["NODE_OPTIONS"] = (env.get("NODE_OPTIONS", "") + f" --import={POLYFILL.as_uri()}").strip()
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=TIMEOUT_S)
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=TIMEOUT_S, env=env)
     except subprocess.TimeoutExpired:
-        return "timed out"
-    if r.returncode != 0:
-        return (r.stderr or r.stdout or f"exit {r.returncode}").strip()[-300:]
-    if not out.exists() or out.stat().st_size < MIN_BYTES:
         out.unlink(missing_ok=True)
-        return "page saved empty (site may block automated visits)"
+        return "timed out"
+    output = (r.stdout or "") + (r.stderr or "")
+    ok = out.exists() and out.stat().st_size >= MIN_BYTES
+    if r.returncode != 0 or not ok:
+        out.unlink(missing_ok=True)
+        if "Unreachable URL" in output:
+            return "the page didn't load (address wrong, site down, or blocking automated visits)"
+        detail = tail(output) or f"exit {r.returncode}"
+        return ("saved an empty page: " if r.returncode == 0 else "") + detail
     return None
-
 
 def main():
     ap = argparse.ArgumentParser()
