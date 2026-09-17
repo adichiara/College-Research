@@ -55,7 +55,6 @@
           background: var(--fill); cursor: pointer; text-align: left; padding: 8px 10px; font-size: .9rem; }
   .cell:hover { background: var(--fill-hover); }
   .cell .n { color: var(--muted); }
-  .cell.unsaved { background: var(--sheet); border: 1.5px solid var(--rule); color: var(--muted); }
   .empty { display: block; min-height: 40px; border: 1.5px dashed var(--rule); border-radius: 5px; }
   .missing { display: none; }
 
@@ -69,27 +68,31 @@
   .blank { padding: 40px 0; color: var(--muted); max-width: 60ch; }
 
   /* Reader */
-  #reader { position: fixed; inset: 0 0 0 auto; width: min(900px, 100%); background: var(--sheet);
+  #reader { position: fixed; inset: 0 0 0 auto; width: min(760px, 100%); background: var(--sheet);
             border-left: 1px solid var(--rule); box-shadow: -8px 0 30px rgba(29,43,42,.12);
             display: flex; flex-direction: column; transform: translateX(100%);
             transition: transform .2s ease; visibility: hidden; z-index: 10; }
   #reader.open { transform: none; visibility: visible; }
-  .rhead { padding: 14px 18px 10px; border-bottom: 1px solid var(--rule); }
+  .rhead { padding: 14px 18px 12px; border-bottom: 1px solid var(--rule); }
   .rrow { display: flex; gap: 8px; align-items: flex-start; justify-content: space-between; }
-  .rtitle { font: 700 1.15rem/1.25 var(--head); margin: 0; }
-  .crumbs { color: var(--muted); font-size: .9rem; margin: 2px 0 8px; }
+  .rtitle { font: 700 1.25rem/1.25 var(--head); margin: 0; }
+  .crumbs { color: var(--muted); font-size: .92rem; margin: 2px 0 10px; }
   .ractions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: .92rem; }
-  .btn { border: 1px solid var(--rule); background: var(--paper); border-radius: 6px; padding: 5px 11px; cursor: pointer; text-decoration: none; color: var(--ink); }
+  .btn { border: 1px solid var(--rule); background: var(--paper); border-radius: 6px; padding: 5px 11px;
+         cursor: pointer; text-decoration: none; color: var(--ink); display: inline-block; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
   .btn[disabled] { opacity: .4; cursor: default; }
   .close { font-size: 1.4rem; line-height: 1; padding: 4px 10px; }
-  .note { margin: 10px 0 0; padding: 8px 12px; background: var(--paper); border-left: 3px solid var(--accent);
-          border-radius: 0 6px 6px 0; max-width: 70ch; white-space: pre-wrap; }
-  .note .by { color: var(--muted); font-size: .88rem; }
-  .cell .has-note { color: var(--accent); font-weight: 700; margin-left: 4px; }
-  .ptabs { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
-  .ptabs .btn[aria-selected="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
-  #frame { flex: 1; border: 0; width: 100%; background: #fff; }
-  .noframe { padding: 24px 18px; }
+  #rbody { flex: 1; overflow-y: auto; padding: 6px 18px 40px; }
+  article.entry { padding: 18px 0; border-bottom: 1px solid var(--rule); }
+  article.entry:last-child { border-bottom: 0; }
+  .elabel { font-weight: 700; margin: 0 0 10px; overflow-wrap: anywhere; }
+  blockquote.key { margin: 0 0 12px; padding: 12px 16px; background: var(--paper); border-left: 3px solid var(--accent);
+                   border-radius: 0 6px 6px 0; white-space: pre-wrap; max-width: 70ch; }
+  .nokey { color: var(--muted); font-style: italic; margin: 0 0 12px; }
+  .note { margin: 0 0 12px; max-width: 70ch; white-space: pre-wrap; }
+  .note b { font-weight: 700; }
+  .elinks { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: .92rem; }
 
   @media (max-width: 700px) {
     header.top, main { padding-left: 14px; padding-right: 14px; }
@@ -115,28 +118,26 @@
 <body>
 <header class="top">
   <h1>College research</h1>
-  <p class="sub">Schools' own pages, organized by school, major, and kind of information.</p>
+  <p class="sub">Schools' own words, organized by school, major, and kind of information.</p>
   <div class="controls">
-    <input id="search" type="search" placeholder="Search schools, majors, titles, notes" aria-label="Search">
+    <input id="search" type="search" placeholder="Search schools, majors, text, notes" aria-label="Search">
     <div class="tags" id="tags"></div>
   </div>
 </header>
 <main id="main"></main>
 
-<aside id="reader" aria-hidden="true" aria-label="Page viewer">
+<aside id="reader" aria-hidden="true" aria-label="Details">
   <div class="rhead">
     <div class="rrow">
       <div>
         <p class="rtitle" id="rtitle"></p>
         <p class="crumbs" id="rcrumbs"></p>
       </div>
-      <button class="btn close" id="rclose" aria-label="Close viewer">×</button>
+      <button class="btn close" id="rclose" aria-label="Close">×</button>
     </div>
     <div class="ractions" id="ractions"></div>
-    <p class="note" id="rnote" hidden></p>
-    <div class="ptabs" id="ptabs" role="tablist"></div>
   </div>
-  <div id="rbody" style="flex:1;display:flex;flex-direction:column"></div>
+  <div id="rbody"></div>
 </aside>
 
 <script>
@@ -149,12 +150,12 @@ let current = null;   // { list, index, versionIndex }
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const byName = (a, b) => a.localeCompare(b, undefined, { sensitivity: "base" });
 const sorted = i => i.school && i.major && i.info;
-const label = i => i.title || i.url.replace(/^https?:\/\//, "");
+const label = i => i.label || i.url;
 
 function visible(i) {
   if (state.tags.size && ![...state.tags].every(t => i.tags.includes(t))) return false;
   if (!state.q) return true;
-  const hay = [i.school, i.major, i.info, i.title, i.url, i.notes, i.addedBy, ...i.tags].join(" ").toLowerCase();
+  const hay = [i.school, i.major, i.info, i.url, i.keyText, i.notes, i.addedBy, ...i.tags].join(" ").toLowerCase();
   return state.q.split(/\s+/).every(w => hay.includes(w));
 }
 
@@ -188,8 +189,8 @@ function render() {
       for (const t of infoTypes) {
         const pages = row.filter(i => i.info === t);
         html += pages.length
-          ? `<td><button class="cell${pages.every(p => p.status !== "ok") ? " unsaved" : ""}" data-label="${esc(t)}" data-open="${esc(JSON.stringify([school, major, t]))}">
-               ${pages.length === 1 ? esc(truncate(label(pages[0]), 38)) : `<span class="n">${pages.length} pages</span>`}${pages.some(p => p.notes) ? `<span class="has-note" title="Has notes" aria-label="has notes">✎</span>` : ""}
+          ? `<td><button class="cell" data-label="${esc(t)}" data-open="${esc(JSON.stringify([school, major, t]))}">
+               ${pages.length === 1 ? esc(truncate((pages[0].keyText || label(pages[0])).replace(/\s+/g, " "), 60)) : `<span class="n">${pages.length} pages</span>`}${pages.some(p => p.notes) ? `<span class="has-note" title="Has notes" aria-label="has notes">✎</span>` : ""}
              </button></td>`
           : `<td class="is-empty"><span class="empty" aria-label="Nothing yet"></span></td>`;
       }
@@ -205,76 +206,66 @@ function render() {
       <div class="meta">Missing ${["school","major","info"].filter(k => !i[k]).map(k => k === "info" ? "info type" : k).join(", ")} in the sheet</div></li>`).join("")}</ul>`;
   }
 
-  const problems = shown.filter(i => i.status !== "ok");
-  if (problems.length) {
-    html += `<h3>Not saved yet</h3><ul class="plain">${problems.map(i => `<li>
-      <a href="${esc(i.url)}" target="_blank" rel="noopener">${esc(i.url)}</a>
-      <div class="${i.status === "failed" ? "err" : "meta"}">${i.status === "failed"
-        ? "Couldn't save this page: " + esc(i.error || "unknown error")
-        : "Waiting for the next update"}</div></li>`).join("")}</ul>`;
-  }
-
   if (!html) html = `<p class="blank">Nothing matches. Clear the search or tag filters to see everything.</p>`;
   main.innerHTML = html;
 }
 
 function truncate(s, n) { return s.length > n ? s.slice(0, n - 1) + "…" : s; }
 
-// Reader. `list` is the set of pages shown as tabs; prev/next walks the same
-// info type across all schools and majors, so you can compare one kind of page.
+// Reader: shows every page in one cell (school + major + info type). Prev/next
+// walks the same info type across all schools and majors, for comparing.
 function openCell(school, major, info) {
-  const list = items.filter(i => visible(i) && i.school === school && i.major === major && i.info === info);
-  current = { list, index: 0, versionIndex: 0 };
+  current = { school, major, info,
+    list: items.filter(i => visible(i) && i.school === school && i.major === major && i.info === info) };
   showReader();
 }
 function openSingle(idx) {
-  current = { list: [items[idx]], index: 0, versionIndex: 0 };
+  const i = items[idx];
+  current = { school: i.school, major: i.major, info: i.info, list: [i], single: true };
   showReader();
 }
 function sameTypeCells(info) {
   const cells = [];
   for (const i of items.filter(i => visible(i) && sorted(i) && i.info === info)
     .sort((a, b) => byName(a.school, b.school) || byName(a.major, b.major))) {
-    const key = i.school + "\u0000" + i.major;
-    if (!cells.some(c => c.key === key)) cells.push({ key, school: i.school, major: i.major });
+    if (!cells.some(c => c.school === i.school && c.major === i.major)) cells.push({ school: i.school, major: i.major });
   }
   return cells;
 }
+const archiveUrl = u => "https://web.archive.org/web/2/" + u;
+
+function entryHtml(i) {
+  return `<article class="entry">
+    <p class="elabel">${esc(label(i))}</p>
+    ${i.keyText ? `<blockquote class="key">${esc(i.keyText)}</blockquote>`
+                : `<p class="nokey">No text pasted for this page.</p>`}
+    ${i.notes ? `<p class="note"><b>Note${i.addedBy ? " from " + esc(i.addedBy) : ""}:</b> ${esc(i.notes)}</p>`
+              : (i.addedBy ? `<p class="meta">Added by ${esc(i.addedBy)}</p>` : "")}
+    <div class="elinks">
+      <a class="btn primary" href="${esc(i.url)}" target="_blank" rel="noopener">Open school's page</a>
+      <a class="btn" href="${esc(archiveUrl(i.url))}" target="_blank" rel="noopener" title="Use if the page has moved or changed">Archived copy</a>
+      ${i.tags.length ? `<span class="meta">${i.tags.map(esc).join(", ")}</span>` : ""}
+    </div>
+  </article>`;
+}
 
 function showReader() {
-  const item = current.list[current.index];
-  const v = item.versions[current.versionIndex];
-  document.getElementById("rtitle").textContent = label(item);
-  document.getElementById("rcrumbs").textContent =
-    [item.school, item.major, item.info].filter(Boolean).join(" / ") + (v ? `, saved ${v.date}` : "");
+  const c = current;
+  document.getElementById("rtitle").textContent = c.single ? label(c.list[0]) : (c.info || "Page");
+  document.getElementById("rcrumbs").textContent = [c.school, c.major, c.single ? c.info : ""].filter(Boolean).join(" / ");
 
-  let actions = `<a class="btn" href="${esc(item.url)}" target="_blank" rel="noopener">Open school's site</a>`;
-  if (item.versions.length > 1) {
-    const other = current.versionIndex === 0 ? 1 : 0;
-    actions += `<button class="btn" data-version="${other}">${other ? "Show earlier version (" + item.versions[1].date + ")" : "Show latest version"}</button>`;
+  let actions = "";
+  if (!c.single && c.school && c.major && c.info) {
+    const cells = sameTypeCells(c.info);
+    const pos = cells.findIndex(x => x.school === c.school && x.major === c.major);
+    const prev = cells[pos - 1], next = cells[pos + 1];
+    actions = `<button class="btn" data-step="-1" ${prev ? "" : "disabled"}>‹ ${prev ? esc(prev.school) : "Previous"}</button>
+               <button class="btn" data-step="1" ${next ? "" : "disabled"}>${next ? esc(next.school) : "Next"} ›</button>
+               <span class="meta">${pos + 1} of ${cells.length} with ${esc(c.info)}</span>`;
   }
-  if (sorted(item)) {
-    const cells = sameTypeCells(item.info);
-    const pos = cells.findIndex(c => c.school === item.school && c.major === item.major);
-    actions += `<button class="btn" data-step="-1" ${pos <= 0 ? "disabled" : ""}>Previous ${esc(item.info)}</button>
-                <button class="btn" data-step="1" ${pos < 0 || pos >= cells.length - 1 ? "disabled" : ""}>Next ${esc(item.info)}</button>`;
-  }
-  if (item.tags.length) actions += `<span class="meta">${item.tags.map(esc).join(", ")}</span>`;
   document.getElementById("ractions").innerHTML = actions;
-
-  const note = document.getElementById("rnote");
-  note.hidden = !item.notes && !item.addedBy;
-  note.innerHTML = (item.notes ? esc(item.notes) : "") +
-    (item.addedBy ? `${item.notes ? " " : ""}<span class="by">${item.notes ? "(" : ""}Added by ${esc(item.addedBy)}${item.notes ? ")" : ""}</span>` : "");
-
-  document.getElementById("ptabs").innerHTML = current.list.length > 1
-    ? current.list.map((p, n) => `<button class="btn" role="tab" aria-selected="${n === current.index}" data-tab="${n}">${esc(truncate(label(p), 30))}</button>`).join("")
-    : "";
-
-  document.getElementById("rbody").innerHTML = v
-    ? `<iframe id="frame" src="${esc(v.file)}" title="${esc(label(item))}"></iframe>`
-    : `<div class="noframe"><p>This page hasn't been saved yet.</p>
-       <p><a href="${esc(item.url)}" target="_blank" rel="noopener">Open it on the school's site</a></p></div>`;
+  document.getElementById("rbody").innerHTML = c.list.map(entryHtml).join("");
+  document.getElementById("rbody").scrollTop = 0;
 
   const r = document.getElementById("reader");
   r.classList.add("open");
@@ -286,7 +277,6 @@ function closeReader() {
   const r = document.getElementById("reader");
   r.classList.remove("open");
   r.setAttribute("aria-hidden", "true");
-  document.getElementById("rbody").innerHTML = "";
 }
 
 document.addEventListener("click", e => {
@@ -299,16 +289,11 @@ document.addEventListener("click", e => {
     openCell(...JSON.parse(t.dataset.open));
   } else if (t.dataset.single !== undefined) {
     openSingle(+t.dataset.single);
-  } else if (t.dataset.tab !== undefined) {
-    current.index = +t.dataset.tab; current.versionIndex = 0; showReader();
-  } else if (t.dataset.version !== undefined) {
-    current.versionIndex = +t.dataset.version; showReader();
   } else if (t.dataset.step) {
-    const item = current.list[current.index];
-    const cells = sameTypeCells(item.info);
-    const pos = cells.findIndex(c => c.school === item.school && c.major === item.major);
+    const cells = sameTypeCells(current.info);
+    const pos = cells.findIndex(x => x.school === current.school && x.major === current.major);
     const next = cells[pos + +t.dataset.step];
-    if (next) openCell(next.school, next.major, item.info);
+    if (next) openCell(next.school, next.major, current.info);
   } else if (t.id === "rclose") {
     closeReader();
   }
