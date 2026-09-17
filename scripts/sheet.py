@@ -22,6 +22,7 @@ OUT = ROOT / "data" / "entries.json"
 # ignores extra words, so "School name" or "Info type (e.g. Curriculum)" still match.
 COLUMN_KEYS = [
     ("url", ["url", "link", "web address"]),
+    ("key_text", ["key text", "quote", "excerpt", "paste"]),
     # notes / added_by are checked before school and major so a question like
     # "Why this school?" is treated as a note, not as the school name.
     ("notes", ["note", "why", "comment"]),
