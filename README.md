@@ -1,139 +1,93 @@
 # College Research
 
-A family scrapbook of schools' own web pages, organized by **School → Major → Info Type**.
+A family hub for comparing college programs, organized by **School → Major → Info Type**.
+Each entry is a link to a school's page plus the key text pasted from it, in the school's own words,
+with optional notes and tags.
 
-Family members add links through a Google Form. Every night, GitHub Actions reads the
-form's sheet, saves a copy of each new page with [SingleFile](https://github.com/gildas-lormeau/SingleFile),
-and rebuilds the site on GitHub Pages.
+Family members add entries through a Google Form. A GitHub Actions workflow reads the form's
+sheet, builds the site, encrypts it with StatiCrypt, and publishes it on GitHub Pages.
 
 ```
-Google Form ─► Sheet ─► Actions: vault unlock ─► sheet.py ─► capture.py ─► vault lock + commit
-                                  ─► build.py ─► StatiCrypt ─► GitHub Pages
+Google Form ─► Sheet ─► Actions: sheet.py ─► build.py ─► StatiCrypt ─► GitHub Pages
 ```
-
-## How it's organized
 
 | Path | What it is |
 |---|---|
-| `scripts/sheet.py` | Reads the sheet (including notes) into `data/entries.json` and applies aliases |
-| `scripts/vault.py` | Encrypts/decrypts saved pages so only ciphertext is ever committed |
-| `scripts/capture.py` | Saves new pages to `snapshots/<url-id>/<date>.html`, tracks results in `data/captures.json` |
+| `scripts/sheet.py` | Reads the sheet into `data/entries.json` (never committed) and applies aliases |
 | `scripts/build.py` | Builds the readable site into `build/`; the workflow encrypts it into `dist/` |
-| `vault/` | The only data in the repo: encrypted snapshots and capture records |
 | `site/index.html` | The viewer page template |
-| `.github/workflows/update.yml` | Nightly job, plus a manual button with a "recapture everything" option |
-
-Snapshots are filed by URL, not by school, so fixing a label in the sheet regroups
-the site on the next build without recapturing anything.
+| `.github/workflows/update.yml` | Builds and publishes nightly, on demand, and when the sheet's script triggers it |
 
 ## Privacy
 
-The repo is public, so nothing readable is ever committed:
+The repo is public, but it contains only code. Sheet data (text, notes, names) is read fresh on
+every run and exists only inside the run and the encrypted site. The site uses one family
+password; "Remember me" keeps each device unlocked for 180 days. The workflow refuses to publish
+an unencrypted page, and `noindex`/`robots.txt` are kept as a second layer.
 
-- **Sheet data** (notes, names) is read fresh on every run and never committed.
-- **Saved pages and capture records** are committed only as AES-GCM ciphertext in `vault/`.
-- **The published site** is encrypted with StatiCrypt. Everyone uses one family password,
-  and "Remember me" keeps each device unlocked for 180 days. The workflow refuses to publish
-  if any page isn't encrypted.
-- `noindex` tags and `robots.txt` are kept as a second layer.
+Anyone can download the encrypted page and try passwords offline, so use a long passphrase.
 
-Anyone can download the encrypted site and try passwords offline, so use a long passphrase
-(four or more random words), not a short family password.
+## Setup
 
-**Keep a copy of `VAULT_KEY` somewhere safe (a password manager).** GitHub won't show a
-secret again. If it's lost, the saved pages can't be decrypted, though the sheet survives
-and everything can be recaptured.
+### Google Form and Sheet
 
-## One-time setup
-
-### 1. Google Form and Sheet
-
-Create a Form with these questions (plain short-answer for now):
+Questions:
 
 - **URL** (required)
 - **School**
 - **Major**
 - **Info Type** (for example Overview, Curriculum, Admissions, Cost)
+- **Key text** (paragraph): text copied from the page
 - **Tags** (optional, comma-separated)
 - **Notes** (optional, paragraph)
 - **Your name** (optional)
 
-In the Form's Responses tab, link it to a new Sheet. Copy the Sheet ID: the long string
-between `/d/` and `/edit` in the sheet's URL.
+Link the Form to a Sheet. Optional second tab named **Aliases** with columns `Field | From | To`
+(e.g. `School | UMass | UMass Amherst`) fixes variant spellings at build time.
+Once labels settle, turn School and Info Type into dropdowns with an "Other" option.
 
-Optional: add a second tab named **Aliases** with columns `Field | From | To`, e.g.
-`School | UMass | UMass Amherst`. Field is `School`, `Major`, or `Info Type`.
+Share the Sheet (Viewer) with the Google service account's email.
 
-Later, once labels settle, switch School and Info Type to dropdown questions with an "Other" option.
+### GitHub
 
-### 2. Google service account
+**Settings → Secrets and variables → Actions → Secrets:**
 
-1. In [Google Cloud Console](https://console.cloud.google.com/), create a project.
-2. Enable the **Google Sheets API** and **Google Drive API** for it.
-3. Under *IAM & Admin → Service Accounts*, create a service account (no roles needed).
-4. On its *Keys* tab, add a JSON key and download it.
-5. Share the Sheet with the service account's email address (Viewer is enough).
+- `GOOGLE_SERVICE_ACCOUNT_JSON`: the service account's JSON key
+- `SHEET_ID`: the long string between `/d/` and `/edit` in the sheet URL
+- `SITE_PASSWORD`: the family passphrase
+- `STATICRYPT_SALT`: 32 hex characters (`openssl rand -hex 16`)
 
-Don't commit the key file. `.gitignore` excludes `service-account*.json` as a safety net.
+**Settings → Pages:** Source = GitHub Actions.
 
-### 3. GitHub
+### Update on each form submission (optional)
 
-In the repo's *Settings*:
-
-- **Secrets and variables → Actions → Secrets**
-  - `GOOGLE_SERVICE_ACCOUNT_JSON`: the entire contents of the JSON key file
-  - `SHEET_ID`: the Sheet ID
-  - `SITE_PASSWORD`: the family passphrase
-  - `STATICRYPT_SALT`: 32 hex characters, from `python -c "import secrets;print(secrets.token_hex(16))"`
-  - `VAULT_KEY`: from `python -c "import os,base64;print(base64.b64encode(os.urandom(32)).decode())"`
-- **Pages**: Source = **GitHub Actions**
-- **Actions → General → Workflow permissions**: Read and write
-
-Then run *Actions → Update site → Run workflow*. The site appears at
-`https://adichiara.github.io/College-Research/`.
+An Apps Script on the sheet calls GitHub's workflow-dispatch API on every form submission, and
+adds an "Update site now" menu for after editing the sheet directly. It needs a fine-grained
+GitHub token limited to this repo with **Actions: Read and write**, stored as the script property
+`GITHUB_TOKEN`. Tokens expire, so renew it yearly.
 
 ## Everyday use
 
-- **Opening the site:** enter the family password once per device with "Remember me" checked.
-- **Adding pages:** anyone fills in the Form. The page shows up after the next nightly run,
-  or run the workflow manually to see it sooner.
-- **Notes:** edit or add them in the sheet any time; they appear after the next run.
-  Cells with notes show a pencil mark, and search covers notes too.
-- **Cleanup:** fix labels directly in the sheet, or add an alias. Rows missing School,
-  Major, or Info Type appear under *Unsorted*.
-- **Yearly refresh:** run the workflow with *Recapture every page* checked. The site keeps
-  the latest and one earlier copy of each page.
-- **Failures:** pages that couldn't be saved are listed under *Not saved yet* with the reason.
-  Each is retried on up to 3 nightly runs.
+- **Open the site:** enter the password once per device with "Remember me" checked.
+- **Add a page:** fill in the Form. Copy the most useful paragraph or two into Key text.
+- **Edit text, notes, or labels:** change them in the sheet, then use *College site → Update site now*.
+- **Compare:** open any cell, then use the ‹ › buttons to step through the same info type at other schools.
+- **Broken link:** each entry has an *Archived copy* button that opens the Internet Archive's
+  most recent snapshot of the page, if one exists.
+- **Rows missing School, Major, or Info Type** appear under *Unsorted*.
 
-- **Changing the password:** update `SITE_PASSWORD` and run the workflow. Everyone re-enters
-  the new one. Changing `STATICRYPT_SALT` also logs out every device.
+## Notes
 
-## Local testing
+- GitHub disables scheduled workflows in public repos after 60 days without repository activity.
+  Manual runs and the sheet's trigger keep working; re-enable the schedule from the Actions tab
+  if GitHub emails you about it.
+- Changing `SITE_PASSWORD` or `STATICRYPT_SALT` asks every device for the password again.
+
+## Local preview
 
 ```bash
 pip install -r scripts/requirements.txt
-npm install -g single-file-cli staticrypt@3
-export VAULT_KEY=... GOOGLE_SERVICE_ACCOUNT_JSON="$(cat service-account.json)" SHEET_ID=...
-python scripts/vault.py unlock
-python scripts/sheet.py
-SINGLEFILE_ARGS="--browser-executable-path=/path/to/chrome" python scripts/capture.py
-python scripts/build.py
-python -m http.server -d build     # readable preview, local only
+export GOOGLE_SERVICE_ACCOUNT_JSON="$(cat service-account.json)" SHEET_ID=...
+python scripts/sheet.py && python scripts/build.py
+python -m http.server -d build     # readable, local only
 ```
-
-Run `python scripts/vault.py lock` before committing if you captured anything locally,
-and never commit `build/`, `data/`, or `snapshots/` (all git-ignored).
-
-## Troubleshooting
-
-- **Every capture fails:** the SingleFile CLI's options change between versions. Run
-  `single-file --help` to check flag names. Set a repo *variable* (not secret) named
-  `SINGLEFILE_ARGS` to override the defaults without editing code. If Chrome fails to launch
-  on the Actions runner, try adding `--browser-args='["--no-sandbox"]'`.
-- **A page saves blank or incomplete:** some school sites block automated visits or load
-  content only when clicked. Save that page by hand with the SingleFile browser extension,
-  then locally: `vault.py unlock`, put the file at `snapshots/<url-id>/<date>.html`,
-  add its entry to `data/captures.json`, `vault.py lock`, and commit `vault/`.
-- **Repo getting large:** each snapshot is typically a few MB, and the encrypted site copy
-  is roughly a third larger again. Only two versions per page are kept, but git history keeps old ones; GitHub recommends repos stay under about 1 GB.
